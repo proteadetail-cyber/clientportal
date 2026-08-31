@@ -40,6 +40,56 @@
     button { cursor: pointer; }
     .shell { max-width: 1500px; margin: auto; padding: 0 28px 36px; }
     
+    /* PIN Security Lock Screen */
+    #pinLockScreen {
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 23, 19, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 99999;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+    #pinLockScreen.unlocked {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .pin-card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 34px 28px;
+      width: min(380px, 100%);
+      text-align: center;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.35);
+    }
+    .pin-input-wrap input {
+      width: 100%;
+      font-size: 28px;
+      letter-spacing: 0.4em;
+      text-align: center;
+      padding: 12px 0 12px 0.4em;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: #fffcf6;
+      outline-color: var(--ink);
+      font-weight: 800;
+    }
+    .pin-error {
+      display: none;
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 750;
+      margin-top: 12px;
+    }
+    .pin-error.show {
+      display: block;
+    }
+
     header {
       height: 105px;
       display: flex;
@@ -350,6 +400,21 @@
   </style>
 </head>
 <body>
+  <!-- PIN SECURITY LOCK OVERLAY -->
+  <div id="pinLockScreen">
+    <div class="pin-card">
+      <div class="wordmark" style="font-size:52px;margin-bottom:4px">WEY <small style="display:block;margin:6px 0 0">SECURITY LOCK</small></div>
+      <p style="color:var(--muted);font-size:13px;margin:12px 0 20px">Enter your 4-digit PIN to access Client Control.</p>
+      <form onsubmit="verifyPin(event)">
+        <div class="pin-input-wrap">
+          <input type="password" id="pinInput" maxlength="4" placeholder="••••" pattern="[0-9]*" inputmode="numeric" autofocus required />
+        </div>
+        <div id="pinError" class="pin-error">Incorrect PIN. Try again.</div>
+        <button type="submit" class="add-btn" style="width:100%;margin-top:16px;padding:12px;font-size:14px">Unlock Portal →</button>
+      </form>
+    </div>
+  </div>
+
   <div class="shell">
     <header>
       <div class="wordmark">WEY <small>CLIENT CONTROL</small></div>
@@ -371,6 +436,7 @@
           </div>
         </div>
 
+        <button class="icon-btn" onclick="lockPortal()" title="Lock App">🔒</button>
         <button class="icon-btn" onclick="openSettingsModal()" title="Settings">⚙</button>
         <button class="add-btn" onclick="openClientModal()">＋ Add client</button>
         <div class="user">J</div>
@@ -805,6 +871,48 @@
   </dialog>
 
   <script>
+    // --- PIN SECURITY LOCK ---
+    const REQUIRED_PIN = "2108";
+
+    function checkPinAuth() {
+      const isAuth = sessionStorage.getItem('wey-authenticated');
+      const lock = document.getElementById('pinLockScreen');
+      if (isAuth === 'true') {
+        lock.classList.add('unlocked');
+      } else {
+        lock.classList.remove('unlocked');
+        setTimeout(() => {
+          document.getElementById('pinInput').focus();
+        }, 100);
+      }
+    }
+
+    function verifyPin(e) {
+      e.preventDefault();
+      const val = document.getElementById('pinInput').value.trim();
+      const err = document.getElementById('pinError');
+      if (val === REQUIRED_PIN) {
+        sessionStorage.setItem('wey-authenticated', 'true');
+        err.classList.remove('show');
+        document.getElementById('pinLockScreen').classList.add('unlocked');
+        document.getElementById('pinInput').value = '';
+      } else {
+        err.classList.add('show');
+        document.getElementById('pinInput').value = '';
+        document.getElementById('pinInput').focus();
+      }
+    }
+
+    function lockPortal() {
+      sessionStorage.removeItem('wey-authenticated');
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinError').classList.remove('show');
+      document.getElementById('pinLockScreen').classList.remove('unlocked');
+      setTimeout(() => {
+        document.getElementById('pinInput').focus();
+      }, 100);
+    }
+
     // --- STATE MANAGEMENT ---
     let clients = JSON.parse(localStorage.getItem('wey-clients') || '[]');
     let pipeline = JSON.parse(localStorage.getItem('wey-pipeline') || '[]');
@@ -819,7 +927,7 @@
       localStorage.setItem('wey-payments', JSON.stringify(payments));
       localStorage.setItem('wey-contracts', JSON.stringify(contracts));
       localStorage.setItem('wey-tasks', JSON.stringify(tasks));
-      renderAll(); // Immediately updates Dashboard, Payments, Pipeline, Contracts Dropdown & Roster!
+      renderAll();
     }
 
     // --- CONTRACTS HEADER DROPDOWN LOGIC ---
@@ -1645,6 +1753,7 @@
     }
 
     // Initial boot
+    checkPinAuth();
     renderAll();
   </script>
 </body>
